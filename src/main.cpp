@@ -1,6 +1,5 @@
 /*Sistema de monitoramento da Temperatura
   MARCOS MEIRA E MILENA FREITAS
-  testes
   17 de fevereiro de 2021
 */
 
