@@ -1,9 +1,7 @@
 /*Sistema de monitoramento da Temperatura
-  MARCOS MEIRA E MILENA FREITAS
-  testes
+  MARCOS MEIRA E MILENA FREITAS 
   17 de fevereiro de 2021
 */
-
 #include <Arduino.h>
 #include <NTPClient.h>
 #include <PubSubClient.h>
@@ -22,6 +20,8 @@
 #define LED_BUILTIN LED_BUILTIN
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
+#define WIFI_SSID2 "Metropole"
+#define WIFI_PASSWORD2 "908070Radio"
 #define WIFI_SSID "MacacoGordo"
 #define WIFI_PASSWORD "2016foigolpe"
 #define BROKER_MQTT "10.71.0.2"
@@ -52,13 +52,13 @@ struct tm data; //armazena data
 char data_formatada[64];
 char data_visor[64];
 bool TensaoPin=false;
-unsigned long tempo = 300000;
+unsigned long tempo = 5000;
 unsigned long ultimoGatilho = millis()+tempo;
 char timeStamp;  
-IPAddress ip (192 , 168 , 0 , 177);  
+IPAddress ip=WiFi.localIP();  
 const int dhtPin1=14;
 const int pirPin1=32; 
-const int sensorTensao=23;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+const int sensorTensao=23;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
 ///////////////////////////////// 
 const char* host = "esp32-REDACAO2";
 // const int PIR 	= 22;
@@ -264,11 +264,12 @@ Ticker tickerpin(publish,PUBLISH_INTERVAL);
 Ticker tempTicker(pegaTemp, 2000);
 void setup () {
   Serial.begin (115200);
-  WiFi.begin (WIFI_SSID, WIFI_PASSWORD); 
-    while (WiFi.status()!= WL_CONNECTED){//incia wifi ate q funcione
-      Serial.print (".");
-      delay(1000);
-    } 
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD); 
+  WiFi.begin(WIFI_SSID2, WIFI_PASSWORD2); 
+  while (WiFi.status()!= WL_CONNECTED){//incia wifi ate q funcione
+    Serial.print (".");
+    delay(1000);
+    }
   ntp.begin ();
   ntp.forceUpdate();
   if (!ntp.forceUpdate ()){
@@ -281,8 +282,10 @@ void setup () {
     tv.tv_sec = ntp.getEpochTime(); //segundos
     settimeofday (&tv, NULL);
   }
+  ip = WiFi.localIP();
   Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println(ip);
+  Serial.println(DEVICE_ID);
   client.setServer (BROKER_MQTT, 1883);//define mqtt
   client.setCallback(callback); 
   server.begin();
@@ -310,13 +313,14 @@ void loop(){
   if(temperaturaAtual<50){
     publishNewState=false;
   }
-  if(publishNewState||TensaoPin){ //publica no MQTT  
+  if(publishNewState||TensaoPin||statusMovimento){ //publica no MQTT  
     datahora();
     u8x8.clear();
-    movimento = (ultimoGatilho<millis()) ? false : true;
+    
     Serial.println("Tempo: " +String(ultimoGatilho));
     int leitura=digitalRead(sensorTensao);
     int sensorPresenca=digitalRead(pirPin1);
+    ip = WiFi.localIP();
     String payload = "{\"temp\":";
     payload += temperaturaAtual;
     payload += ",";
@@ -324,13 +328,23 @@ void loop(){
     payload += leitura;
     payload += ",";
     payload += "\"movimento\":";
-    payload += movimento;
+    payload += sensorPresenca;
+    payload += ",";
+    payload += "\"IP\":";
+    payload +="\"";
+    payload += ip.toString();
+    payload +="\"";
+    payload += ",";
+    payload += "\"mac\":";
+    payload +="\"";
+    payload += DEVICE_ID;
+    payload +="\"";
     payload += "}";
     client.publish (topic, (char*) payload.c_str());
     publishNewState=false;
     TensaoPin=false; 
+    statusMovimento=false;
   }
-Serial.println(DEVICE_ID);
 tempTicker.update();
 tickerpin.update();
 }
