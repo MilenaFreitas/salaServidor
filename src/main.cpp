@@ -20,8 +20,6 @@
 #define LED_BUILTIN LED_BUILTIN
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
-#define WIFI_SSID2 "Metropole"
-#define WIFI_PASSWORD2 "908070Radio"
 #define WIFI_SSID "MacacoGordo"
 #define WIFI_PASSWORD "2016foigolpe"
 #define BROKER_MQTT "10.71.0.2"
@@ -265,7 +263,6 @@ Ticker tempTicker(pegaTemp, 2000);
 void setup () {
   Serial.begin (115200);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD); 
-  WiFi.begin(WIFI_SSID2, WIFI_PASSWORD2); 
   while (WiFi.status()!= WL_CONNECTED){//incia wifi ate q funcione
     Serial.print (".");
     delay(1000);
