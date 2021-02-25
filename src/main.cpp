@@ -58,7 +58,7 @@ const int dhtPin1=14;
 const int pirPin1=32; 
 const int sensorTensao=23;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
 ///////////////////////////////// 
-const char* host = "esp32-REDACAO2";
+const char* host = "esp32-MACACO";
 // const int PIR 	= 22;
 // const int TEMP	=	21;
 // int StatusPIR;
@@ -292,7 +292,6 @@ void setup () {
   attachInterrupt (digitalPinToInterrupt (pirPin1), mudaStatusPir, CHANGE);
   vTaskDelay (pdMS_TO_TICKS(1000));
   attachInterrupt (digitalPinToInterrupt(sensorTensao), Tensao, CHANGE);
-  delay(1500);
   tickerpin.start();
   tempTicker.start();
   u8x8.begin();
@@ -313,7 +312,6 @@ void loop(){
   if(publishNewState||TensaoPin||statusMovimento){ //publica no MQTT  
     datahora();
     u8x8.clear();
-    
     Serial.println("Tempo: " +String(ultimoGatilho));
     int leitura=digitalRead(sensorTensao);
     int sensorPresenca=digitalRead(pirPin1);
@@ -321,11 +319,11 @@ void loop(){
     String payload = "{\"temp\":";
     payload += temperaturaAtual;
     payload += ",";
-    payload += "\"Tensao\":";
-    payload += leitura;
-    payload += ",";
     payload += "\"movimento\":";
     payload += sensorPresenca;
+    payload += ",";
+    payload += "\" tensao\":";
+    payload += leitura;
     payload += ",";
     payload += "\"IP\":";
     payload +="\"";
