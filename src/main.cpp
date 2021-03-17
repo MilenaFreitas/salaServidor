@@ -24,7 +24,7 @@
 #define WIFI_PASSWORD "908070Radio"
 #define BROKER_MQTT "10.71.0.2"
 #define DEVICE_TYPE "ESP32"
-#define PUBLISH_INTERVAL 900000 //intervalo de 15 min para publicar temperatura
+#define PUBLISH_INTERVAL 1000*60*20 //intervalo de 20 min para publicar temperatura
 
 uint64_t chipid = ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip = (uint16_t)(chipid >> 32);
@@ -43,13 +43,15 @@ bool publishNewState = false;
 TaskHandle_t retornoTemp;
 bool novaTemp = false;
 int tempAtual=0;
+int tempAntiga=0;
+int movimento=0;
 bool mov=false;
 bool tasksAtivo = true;
 struct tm data; //armazena data 
 char data_formatada[64];
 char data_visor[64];
-bool TensaoPin=false;
-unsigned long tempo = 300000; // 5 min
+bool tensaoPin=false;
+unsigned long tempo = 1000*60*5; // 5 min
 unsigned long ultimoGatilho = millis()+tempo;
 char timeStamp;  
 IPAddress ip=WiFi.localIP();  
@@ -129,14 +131,14 @@ String serverIndex =
 "});"
 "});"
 "</script>" + style;
-void callback(char* topic, byte* payload3, unsigned int length){
-  //retorna infoMQTT
-    char msg;
-if (topic == "status") {
-  for (int i=0;i<length;i++) {
-    Serial.print((char)payload3[i]);
-    msg += (char)payload3[i];
-  }
+void callback(char* topic, byte* payload3, unsigned int length){ 
+//retorna infoMQTT
+  char msg;
+  if (topic == "status") {
+    for (int i=0;i<length;i++) {
+      Serial.print((char)payload3[i]);
+      msg += (char)payload3[i];
+    }
   Serial.println("ok");
   publishNewState = true;
   }
@@ -186,7 +188,6 @@ void sensorTemp(void *pvParameters){
   }
 }
 void IRAM_ATTR mudaStatusPir(){
-  //movimento = digitalRead(pirPin1);
   mov=true;
  }
 void pegaTemp () {
@@ -195,10 +196,18 @@ void pegaTemp () {
   }
 }
 void publish (){
-  publishNewState = true;
+  if (tempAntiga != tempAtual){
+    // nova temperatura
+    tempAntiga==tempAtual;
+    novaTemp = 1;
+  } else {
+    // temperatura igual
+    novaTemp==0;
+  }
+  
 }
 void Tensao(){
-  TensaoPin=true;
+  tensaoPin=true;
 }
 void PinConfig () {
   // config das portas i/o
@@ -264,8 +273,8 @@ void payloadMQTT (){
   u8x8.clear();
   Serial.println("Tempo: " +String(ultimoGatilho));
   int tensao=digitalRead(sensorTensao);
+  movimento = digitalRead(pirPin1);
   time_t tt=time(NULL);
-  ip = WiFi.localIP(); 
   String payload = "{\"local\":";
   payload += "\"SalaTransmisssor\"";
   payload += ",";
@@ -276,7 +285,7 @@ void payloadMQTT (){
   payload += tempAtual;
   payload += ",";
   payload += "\"movimento\":";
-  payload += mov;
+  payload += movimento;
   payload += ",";
   payload += "\"tensao\":";
   payload += tensao;
@@ -292,12 +301,12 @@ void payloadMQTT (){
   payload +="\"";
   payload += "}";
   client.publish (topic, (char*) payload.c_str());
-  publishNewState=false;
-  TensaoPin=false; 
-  mov=false;
+  novaTemp=false;
+  tensaoPin=false; 
+  movimento=false;
 }
-Ticker tickerpin(publish,PUBLISH_INTERVAL);
-Ticker tempTicker(pegaTemp, 2000);
+Ticker tickerpin(publish, PUBLISH_INTERVAL);
+Ticker tempTicker(pegaTemp, 10000);
 void setup () {
   Serial.begin (115200);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD); 
@@ -327,14 +336,14 @@ void setup () {
   PinConfig();
   dhtSensor.setup(dhtPin1, DHTesp::DHT11);
   xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 5, &retornoTemp, 0);
-  attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
+  attachInterrupt (digitalPinToInterrupt(32), mudaStatusPir, RISING);
   attachInterrupt (digitalPinToInterrupt(sensorTensao), Tensao, CHANGE);
-  vTaskDelay (pdMS_TO_TICKS(1000));
   tickerpin.start();
   tempTicker.start();
   u8x8.begin();
   u8x8.clear();
   UpdateRemoto();
+  movimento = digitalRead(pirPin1);
 }
 void loop(){
   U8x8visor();
@@ -344,17 +353,15 @@ void loop(){
   }
   client.loop();
   if(tempAtual>50){
-    publishNewState=false;
+    novaTemp=false;
   }
-  if(mov && ultimoGatilho < millis()){ //publica no MQTT  
+  if((ultimoGatilho < millis()) && movimento==1){ //publica no MQTT  
     payloadMQTT();
     ultimoGatilho = millis()+tempo;
-  }
-  if (publishNewState || TensaoPin){
-    payloadMQTT(); 
+  }else if (tensaoPin||novaTemp==1){
+    payloadMQTT();
   }
 tempTicker.update();
 tickerpin.update();
 }
-
 
