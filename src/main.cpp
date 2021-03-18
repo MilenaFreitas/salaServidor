@@ -51,7 +51,7 @@ struct tm data; //armazena data
 char data_formatada[64];
 char data_visor[64];
 bool tensaoPin=false;
-unsigned long tempo = 1000*60*5; // 5 min
+unsigned long tempo = 1000*60*3; // 3 min
 unsigned long ultimoGatilho = millis()+tempo;
 char timeStamp;  
 IPAddress ip=WiFi.localIP();  
@@ -181,7 +181,6 @@ void datahora(){
 void sensorTemp(void *pvParameters){
   Serial.println ("sensorTemp inicio do LOOP");
   while (1) {//busca temp enquanto estiver ligado
-    novaTemp=true;
     tempAtual = dhtSensor.getTemperature();
     tasksAtivo=false;
     vTaskSuspend (NULL);
@@ -189,7 +188,7 @@ void sensorTemp(void *pvParameters){
 }
 void IRAM_ATTR mudaStatusPir(){
   mov=true;
- }
+}
 void pegaTemp () {
       if (retornoTemp != NULL) {
     xTaskResumeFromISR (retornoTemp);
@@ -198,13 +197,16 @@ void pegaTemp () {
 void publish (){
   if (tempAntiga != tempAtual){
     // nova temperatura
-    tempAntiga==tempAtual;
-    novaTemp = 1;
+    tempAntiga=tempAtual;
+    if(tempAtual>50){
+      novaTemp=0;
+    } else {
+      novaTemp=1;
+    }
   } else {
     // temperatura igual
-    novaTemp==0;
+    novaTemp=0;
   }
-  
 }
 void Tensao(){
   tensaoPin=true;
@@ -304,6 +306,7 @@ void payloadMQTT (){
   novaTemp=false;
   tensaoPin=false; 
   movimento=false;
+  mov=false;
 }
 Ticker tickerpin(publish, PUBLISH_INTERVAL);
 Ticker tempTicker(pegaTemp, 10000);
@@ -336,8 +339,9 @@ void setup () {
   PinConfig();
   dhtSensor.setup(dhtPin1, DHTesp::DHT11);
   xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 5, &retornoTemp, 0);
-  attachInterrupt (digitalPinToInterrupt(32), mudaStatusPir, RISING);
+  attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
   attachInterrupt (digitalPinToInterrupt(sensorTensao), Tensao, CHANGE);
+  vTaskDelay (pdMS_TO_TICKS(1000));
   tickerpin.start();
   tempTicker.start();
   u8x8.begin();
@@ -352,16 +356,22 @@ void loop(){
     reconectaMQTT();
   }
   client.loop();
-  if(tempAtual>50){
-    novaTemp=false;
-  }
-  if((ultimoGatilho < millis()) && movimento==1){ //publica no MQTT  
+  if( ultimoGatilho<millis() && mov==1){ //publica no MQTT  
+    // if (mov) { 
+    // ultimoGatilho = millis()+tempo;
+    // mov = false;
+    // }
+    Serial.println("entrou no movimento");
     payloadMQTT();
     ultimoGatilho = millis()+tempo;
-  }else if (tensaoPin||novaTemp==1){
+  }
+  else if (tensaoPin||novaTemp==1){
     payloadMQTT();
   }
 tempTicker.update();
 tickerpin.update();
 }
+
+
+
 
