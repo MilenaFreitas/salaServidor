@@ -20,11 +20,11 @@
 #define LED_BUILTIN LED_BUILTIN
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
-#define WIFI_SSID "MacacoGordo"
-#define WIFI_PASSWORD "2016foigolpe"
+#define WIFI_SSID "Metropole"
+#define WIFI_PASSWORD "908070Radio"
 #define BROKER_MQTT "10.71.0.2"
 #define DEVICE_TYPE "ESP32"
-#define PUBLISH_INTERVAL 300000 //intervalo de 5 min para publicar temperatura
+#define PUBLISH_INTERVAL 180000 //intervalo de 3 min para publicar temperatura
 
 uint64_t chipid = ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip = (uint16_t)(chipid >> 32);
@@ -42,23 +42,23 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(15, 4, 16);
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
 bool novaTemp = false;
-int temperaturaAtual=0;
+int tempAtual=0;
 bool tasksAtivo = true;
 bool statusMovimento = false;
-bool movimento=false;
+bool mov=false;
 struct tm data; //armazena data 
 char data_formatada[64];
 char data_visor[64];
 bool TensaoPin=false;
-unsigned long tempo = 5000;
+unsigned long tempo = 300000;
 unsigned long ultimoGatilho = millis()+tempo;
 char timeStamp;  
 IPAddress ip=WiFi.localIP();  
 const int dhtPin1=14;
 const int pirPin1=32; 
-const int sensorTensao=23;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+const int sensorTensao=23;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
 ///////////////////////////////// 
-const char* host = "esp32-MACACO";
+const char* host = "esp32-Transmissor";
 // const int PIR 	= 22;
 // const int TEMP	=	21;
 // int StatusPIR;
@@ -130,15 +130,18 @@ String serverIndex =
 "});"
 "});"
 "</script>" + style;
-void callback(char* topic, byte* payload, unsigned int length){
+void callback(char* topic, byte* payload3, unsigned int length){
   //retorna infoMQTT
-  Serial.print ("Mensagem enviada [");
-  Serial.print ("topic");
-  Serial.print ("]");
+    char msg;
+if (topic == "status") {
   for (int i=0;i<length;i++) {
-    Serial.print((char)payload[i]);
+    Serial.print((char)payload3[i]);
+    msg += (char)payload3[i];
   }
-  Serial.println();
+  Serial.println("ok");
+  publishNewState = true;
+  }
+ Serial.println("fora " +msg);
 }
 void conectaMQTT () {
   //Estabelece conexao c MQTT/WIFI
@@ -147,7 +150,8 @@ void conectaMQTT () {
     if (client.connect("ESP32")) {
       Serial.println ("Conectado :)");
       client.publish ("teste", "ola mundo");
-      client.subscribe ("macaco");
+      client.subscribe ("macaco");      
+      client.subscribe ("status");
     } else { //reconecta ate ter sucesso
       Serial.println("Falha na conexao");
       Serial.print(client.state());
@@ -173,20 +177,22 @@ void datahora(){
   if (anoEsp < 2020) {
     ntp.forceUpdate();
   }	
-  Serial.println (data_formatada);  // Escreve a hora no monitor serial.
 }
 void sensorTemp(void *pvParameters){
   Serial.println ("sensorTemp inicio do LOOP");
   while (1) {//busca temp enquanto estiver ligado
     novaTemp=true;
-    temperaturaAtual = dhtSensor.getTemperature();
+    tempAtual = dhtSensor.getTemperature();
     tasksAtivo=false;
     vTaskSuspend (NULL);
   }
 }
 void IRAM_ATTR mudaStatusPir(){
   //se tiver movimento muda a variavel
-  statusMovimento = true; 
+  if (ultimoGatilho <= millis()){
+    statusMovimento = true;
+    ultimoGatilho = millis()+tempo; 
+  }
 }
 void pegaTemp () {
       if (retornoTemp != NULL) {
@@ -211,7 +217,7 @@ void U8x8visor() { //publica info no visor painel
   u8x8.print(String(data_visor)+"h");
   u8x8.setFont(u8x8_font_inb21_2x4_f);
   u8x8.setCursor(2,3);
-	u8x8.print(String(temperaturaAtual)+"\xb0""C");
+	u8x8.print(String(tempAtual)+"\xb0""C");
   u8x8.setFont(u8x8_font_8x13B_1x2_f);
   u8x8.setCursor(13,6);
   u8x8.print("M-");
@@ -289,7 +295,7 @@ void setup () {
   PinConfig();
   dhtSensor.setup(dhtPin1, DHTesp::DHT11);
   xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 5, &retornoTemp, 0);  
-  attachInterrupt (digitalPinToInterrupt (pirPin1), mudaStatusPir, CHANGE);
+  attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
   vTaskDelay (pdMS_TO_TICKS(1000));
   attachInterrupt (digitalPinToInterrupt(sensorTensao), Tensao, CHANGE);
   tickerpin.start();
@@ -306,26 +312,33 @@ void loop(){
   }
   client.loop();
   U8x8visor();
-  if(temperaturaAtual<50){
+  if(tempAtual<50){
     publishNewState=false;
   }
   if(publishNewState||TensaoPin||statusMovimento){ //publica no MQTT  
     datahora();
     u8x8.clear();
     Serial.println("Tempo: " +String(ultimoGatilho));
-    int leitura=digitalRead(sensorTensao);
-    int sensorPresenca=digitalRead(pirPin1);
+    int tensao=digitalRead(sensorTensao);
+    int mov=digitalRead(pirPin1);
+    time_t tt=time(NULL);
     ip = WiFi.localIP();
-    String payload = "{\"temp\":";
-    payload += temperaturaAtual;
+    String payload = "{\"local\":";
+    payload += "\"SalaTransmisssor\"";
+    payload += ",";
+    payload += "\"hora\":";
+    payload += tt;
+    payload += ",";
+    payload += "\"temp\":";
+    payload += tempAtual;
     payload += ",";
     payload += "\"movimento\":";
-    payload += sensorPresenca;
+    payload += mov;
     payload += ",";
-    payload += "\" tensao\":";
-    payload += leitura;
+    payload += "\"tensao\":";
+    payload += tensao;
     payload += ",";
-    payload += "\"IP\":";
+    payload += "\"ip\":";
     payload +="\"";
     payload += ip.toString();
     payload +="\"";
