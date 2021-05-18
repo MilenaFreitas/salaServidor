@@ -24,11 +24,7 @@
 #define WIFI_PASSWORD "908070Radio"
 #define BROKER_MQTT "10.71.0.2"
 #define DEVICE_TYPE "ESP32"
-<<<<<<< HEAD
 #define PUBLISH_INTERVAL 1000*60*360 //intervalo de 6 h para publicar temperatura
-=======
-#define PUBLISH_INTERVAL 1000*60*20 //intervalo de 20 min para publicar temperatura
->>>>>>> 1f915a6c53e6fa7458cf964033419342f90f611c
 
 uint64_t chipid = ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip = (uint16_t)(chipid >> 32);
@@ -55,11 +51,7 @@ struct tm data; //armazena data
 char data_formatada[64];
 char data_visor[64];
 bool tensaoPin=false;
-<<<<<<< HEAD
 unsigned long tempo = 1000*60*15; // 15 min
-=======
-unsigned long tempo = 1000*60*3; // 3 min
->>>>>>> 1f915a6c53e6fa7458cf964033419342f90f611c
 unsigned long ultimoGatilho = millis()+tempo;
 char timeStamp;  
 IPAddress ip=WiFi.localIP();  
