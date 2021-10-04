@@ -22,7 +22,7 @@
 #define ORG "n5hyok"
 #define WIFI_SSID "Metropole"
 #define WIFI_PASSWORD "908070Radio"
-#define BROKER_MQTT "10.71.0.2"
+#define BROKER_MQTT "10.71.0.132"
 #define DEVICE_TYPE "ESP32"
 #define PUBLISH_INTERVAL 1000*60*360 //intervalo de 6 h para publicar temperatura
 
@@ -34,7 +34,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 WebServer server(80);
 WiFiUDP udp;
-char topic[]= "macaco"; // topico MQTT
+char topic[]= "teste"; // topico MQTT
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 DHTesp dhtSensor;
 DynamicJsonDocument doc (1024); //tamanho do doc do json
@@ -55,9 +55,9 @@ unsigned long tempo = 1000*60*15; // 15 min
 unsigned long ultimoGatilho = millis()+tempo;
 char timeStamp;  
 IPAddress ip=WiFi.localIP();  
-const int dhtPin1=14;
-const int pirPin1=32; 
-const int sensorTensao=23;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+const int dhtPin1=27;
+const int pirPin1=14; 
+const int sensorTensao=23;
 ///////////////////////////////// 
 const char* host = "esp32-Transmissor";
 // const int PIR 	= 22;
@@ -150,8 +150,8 @@ void conectaMQTT () {
     if (client.connect("ESP32")) {
       Serial.println ("Conectado :)");
       client.publish ("teste", "ola mundo");
-      client.subscribe ("macaco");      
-      client.subscribe ("status");
+      client.subscribe ("teste");      
+   
     } else { //reconecta ate ter sucesso
       Serial.println("Falha na conexao");
       Serial.print(client.state());
@@ -338,7 +338,7 @@ void setup () {
   server.begin();
   PinConfig();
   dhtSensor.setup(dhtPin1, DHTesp::DHT11);
-  xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 5, &retornoTemp, 0);
+  xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 1, &retornoTemp, 0);
   attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
   attachInterrupt (digitalPinToInterrupt(sensorTensao), Tensao, CHANGE);
   vTaskDelay (pdMS_TO_TICKS(1000));
